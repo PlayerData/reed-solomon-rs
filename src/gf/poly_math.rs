@@ -1,71 +1,70 @@
 use core::cmp::max;
-use ::gf::poly::Polynom;
-use ::gf;
+use super::poly::Polynom;
 
 const POLY_MATH_MAX_RESULT: usize = 65;
 
-// pub trait Scale {
-//     fn scale(&self, x: u8) -> Polynom;
-//     fn scale_assign(&mut self, x: u8) -> &mut Self;
-// }
-//
-// pub trait Add {
-//     fn add(&self, rhs: &Self) -> Polynom;
-//     fn add_assign(&mut self, rhs: &Self) -> &mut Self;
-// }
+pub trait Scale {
+    fn scale(&self, x: u8) -> Polynom<POLY_MATH_MAX_RESULT>;
+    fn scale_assign(&mut self, x: u8) -> &mut Self;
+}
+
+pub trait Add {
+    fn add(&self, rhs: &Self) -> Polynom<POLY_MATH_MAX_RESULT>;
+    fn add_assign(&mut self, rhs: &Self) -> &mut Self;
+}
 
 pub trait Mul {
     fn mul(&self, rhs: &Self) -> Polynom<POLY_MATH_MAX_RESULT>;
 }
 
-// pub trait Div {
-//     fn div(&self, rhs: &Self) -> (Polynom, Polynom);
-// }
-//
-// pub trait Eval {
-//     fn eval(&self, x: u8) -> u8;
-// }
-//
-// impl Scale for [u8] {
-//     #[inline]
-//     fn scale(&self, x: u8) -> Polynom {
-//         let mut poly = Polynom::from(self);
-//         poly.scale_assign(x);
-//         poly
-//     }
-//
-//     #[inline]
-//     fn scale_assign(&mut self, x: u8) -> &mut Self {
-//         for px in self.iter_mut() {
-//             *px = gf::mul(*px, x);
-//         }
-//         self
-//     }
-// }
-//
-// impl Add for [u8] {
-//     fn add(&self, rhs: &Self) -> Polynom {
-//         let mut poly = Polynom::with_length(max(self.len(), rhs.len()));
-//
-//         for (i, x) in self.iter().enumerate() {
-//             let index = i + poly.len() - self.len();
-//             uncheck_mut!(poly[index]) = *x;
-//         }
-//
-//         for (i, x) in rhs.iter().enumerate() {
-//             let index = i + poly.len() - rhs.len();
-//             uncheck_mut!(poly[index]) ^= *x;
-//         }
-//
-//         poly
-//     }
-//
-//     fn add_assign(&mut self, rhs: &Self) -> &mut Self {
-//         let poly = self.add(rhs);
-//         self.copy_from_slice(&poly);
-//         self
-//     }
-// }
+pub trait Div {
+    fn div(&self, rhs: &Self) -> (Polynom<POLY_MATH_MAX_RESULT>, Polynom<POLY_MATH_MAX_RESULT>);
+}
+
+pub trait Eval {
+    fn eval(&self, x: u8) -> u8;
+}
+
+impl Scale for [u8] {
+    #[inline]
+    fn scale(&self, x: u8) -> Polynom<POLY_MATH_MAX_RESULT> {
+        let mut poly = Polynom::from(self);
+        poly.scale_assign(x);
+        poly
+    }
+
+    #[inline]
+    fn scale_assign(&mut self, x: u8) -> &mut Self {
+        for px in self.iter_mut() {
+            *px = super::mul(*px, x);
+        }
+        self
+    }
+}
+
+impl Add for [u8] {
+    fn add(&self, rhs: &Self) -> Polynom<POLY_MATH_MAX_RESULT> {
+        let mut poly = Polynom::with_length(max(self.len(), rhs.len()));
+
+        for (i, x) in self.iter().enumerate() {
+            let index = i + poly.len() - self.len();
+            uncheck_mut!(poly[index]) = *x;
+        }
+
+        for (i, x) in rhs.iter().enumerate() {
+            let index = i + poly.len() - rhs.len();
+            uncheck_mut!(poly[index]) ^= *x;
+        }
+
+        poly
+    }
+
+    fn add_assign(&mut self, rhs: &Self) -> &mut Self {
+        let poly = self.add(rhs);
+        self.copy_from_slice(&poly);
+        self
+    }
+}
 
 impl Mul for [u8] {
     #[inline]
@@ -74,7 +73,7 @@ impl Mul for [u8] {
 
         for (j, rhs_x) in rhs.iter().enumerate() {
             for (i, self_x) in self.iter().enumerate() {
-                uncheck_mut!(poly[i + j]) ^= gf::mul(*self_x, *rhs_x);
+                uncheck_mut!(poly[i + j]) ^= super::mul(*self_x, *rhs_x);
             }
         }
 
@@ -82,49 +81,49 @@ impl Mul for [u8] {
     }
 }
 
-// impl Div for [u8] {
-//     fn div(&self, rhs: &Self) -> (Polynom, Polynom) {
-//         let mut poly = Polynom::from(self);
-//
-//         // If divisor's degree (len-1) is bigger, all dividend is a remainder
-//         let divisor_degree = rhs.len() - 1;
-//         if self.len() < divisor_degree {
-//             return (Polynom::new(), poly);
-//         }
-//
-//         for i in 0..(self.len() - divisor_degree) {
-//             let coef = uncheck!(poly[i]);
-//             if coef != 0 {
-//                 for j in 1..rhs.len() {
-//                     if rhs[j] != 0 {
-//                         uncheck_mut!(poly[i + j]) ^= gf::mul(rhs[j], coef);
-//                     }
-//                 }
-//             }
-//         }
-//
-//         let separator = self.len() - (rhs.len() - 1);
-//
-//         // Quotient is after separator
-//         let remainder = Polynom::from(&poly[separator..]);
-//
-//         // And reminder is before separator, so just shrink to it
-//         poly.set_length(separator);
-//
-//         (poly, remainder)
-//     }
-// }
-//
-// impl Eval for [u8] {
-//     #[inline]
-//     fn eval(&self, x: u8) -> u8 {
-//         let mut y = self[0];
-//         for px in self.iter().skip(1) {
-//             y = gf::mul(y, x) ^ px;
-//         }
-//         y
-//     }
-// }
+impl Div for [u8] {
+    fn div(&self, rhs: &Self) -> (Polynom<POLY_MATH_MAX_RESULT>, Polynom<POLY_MATH_MAX_RESULT>) {
+        let mut poly = Polynom::from(self);
+
+        // If divisor's degree (len-1) is bigger, all dividend is a remainder
+        let divisor_degree = rhs.len() - 1;
+        if self.len() < divisor_degree {
+            return (Polynom::new(), poly);
+        }
+
+        for i in 0..(self.len() - divisor_degree) {
+            let coef = uncheck!(poly[i]);
+            if coef != 0 {
+                for j in 1..rhs.len() {
+                    if rhs[j] != 0 {
+                        uncheck_mut!(poly[i + j]) ^= super::mul(rhs[j], coef);
+                    }
+                }
+            }
+        }
+
+        let separator = self.len() - (rhs.len() - 1);
+
+        // Quotient is after separator
+        let remainder = Polynom::from(&poly[separator..]);
+
+        // And reminder is before separator, so just shrink to it
+        poly.set_length(separator);
+
+        (poly, remainder)
+    }
+}
+
+impl Eval for [u8] {
+    #[inline]
+    fn eval(&self, x: u8) -> u8 {
+        let mut y = self[0];
+        for px in self.iter().skip(1) {
+            y = super::mul(y, x) ^ px;
+        }
+        y
+    }
+}
 
 
 #[cfg(test)]

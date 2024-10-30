@@ -95,7 +95,7 @@ impl<const N: usize> DerefMut for Polynom<N> {
 impl<'a, const N: usize> From<&'a [u8]> for Polynom<N> {
     #[inline]
     fn from(slice: &'a [u8]) -> Self {
-        debug_assert!(slice.len() <= ::POLYNOMIAL_MAX_LENGTH);
+        debug_assert!(slice.len() <= crate::POLYNOMIAL_MAX_LENGTH);
         let mut poly = Polynom::with_length(slice.len());
         poly[..].copy_from_slice(slice);
         poly
@@ -111,7 +111,7 @@ impl<const N: usize> fmt::Debug for Polynom<N> {
 
 #[cfg(test)]
 mod tests {
-    use gf::poly::Polynom;
+    use crate::gf::poly::Polynom;
 
     #[test]
     fn push() {
