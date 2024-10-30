@@ -25,9 +25,10 @@ impl<const ECC_BYTE_COUNT_STORE: usize> Encoder<ECC_BYTE_COUNT_STORE> {
     /// ```rust
     /// use reed_solomon::Encoder;
     ///
-    /// let encoder = Encoder::new(8);
+    /// let encoder = Encoder::<9>::new(8);
     /// ```
     pub fn new(ecc_len: usize) -> Self {
+        debug_assert!(ecc_len  < ECC_BYTE_COUNT_STORE, "ECC length is too long for the provided buffer");
         let generator = generator_poly(ecc_len);
 
         Self {
@@ -54,18 +55,19 @@ impl<const ECC_BYTE_COUNT_STORE: usize> Encoder<ECC_BYTE_COUNT_STORE> {
     /// use reed_solomon::Encoder;
     ///
     /// let data = "Hello World".as_bytes();
-    /// let encoder = Encoder::new(8);
+    /// let encoder = Encoder::<9>::new(8);
     ///
     /// let encoded = encoder.encode(&data);
     ///
-    /// println!("whole: {:?}", &encoded[..]);
-    /// println!("data:  {:?}", encoded.data());
-    /// println!("ecc:   {:?}", encoded.ecc());
+    /// println!("ecc:   {:?}", encoded);
     /// ```
     pub fn encode(&self, data: &[u8]) -> Vec<u8, ECC_BYTE_COUNT_STORE> {
         let mut scratch_space: [u8; ECC_BYTE_COUNT_STORE] = [0; ECC_BYTE_COUNT_STORE];
-        scratch_space[1..].copy_from_slice(&data[..(ECC_BYTE_COUNT_STORE - 1)]);
-
+        if data.len() >= ECC_BYTE_COUNT_STORE - 1 {
+            scratch_space[1..].copy_from_slice(&data[..(ECC_BYTE_COUNT_STORE - 1)]);
+        } else {
+            scratch_space[1..1 + data.len()].copy_from_slice(&data);
+        }
         for i in 0..data.len() {
             scratch_space.rotate_left(1);
             if i + ECC_BYTE_COUNT_STORE -1 < data.len() {

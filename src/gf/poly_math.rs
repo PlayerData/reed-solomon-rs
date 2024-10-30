@@ -1,7 +1,7 @@
 use core::cmp::max;
 use super::poly::Polynom;
 
-const POLY_MATH_MAX_RESULT: usize = 65;
+const POLY_MATH_MAX_RESULT: usize = 4096;
 
 pub trait Scale {
     fn scale(&self, x: u8) -> Polynom<POLY_MATH_MAX_RESULT>;

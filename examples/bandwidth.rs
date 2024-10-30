@@ -32,14 +32,14 @@ impl Iterator for Generator {
 }
 
 // Returns MB/s
-fn encoder_bandwidth(data_len: usize, ecc_len: usize) -> f32 { 
+fn encoder_bandwidth(data_len: usize, ecc_len: usize) -> f32 {
      // Measure encoding bandwidth
     let (tx, thr_rx) = mpsc::channel();
     let (thr_tx, rx) = mpsc::channel();
     
     thread::spawn(move || {
         let generator = Generator::new();
-        let encoder = Encoder::new(ecc_len);
+        let encoder = Encoder::<33>::new(ecc_len);
 
         let buffer: Vec<u8> = generator.take(data_len).collect();
         let mut bytes = 0;
@@ -67,19 +67,21 @@ fn decoder_bandwidth(data_len: usize, ecc_len: usize, errors: usize) -> f32 {
     
     thread::spawn(move || {
         let generator = Generator::new();
-        let encoder = Encoder::new(ecc_len);
+        let encoder = Encoder::<33>::new(ecc_len);
         let decoder = Decoder::new(ecc_len);
 
         let buffer: Vec<u8> = generator.take(data_len).collect();
         let mut encoded = encoder.encode(&buffer);
-        for x in encoded.iter_mut().take(errors) {
+        let mut message = buffer.clone();
+        message.extend_from_slice(&encoded[..]);
+        for x in message.iter_mut().take(errors) {
             *x = 0;
         } 
 
         let mut bytes = 0;
         while thr_rx.try_recv().is_err() {
-            if decoder.is_corrupted(&encoded) {
-                decoder.correct(&mut encoded, None).unwrap();
+            if decoder.is_corrupted(&message) {
+                decoder.correct(&mut message, None).unwrap();
             }            
             bytes += data_len;
         }

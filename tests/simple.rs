@@ -10,14 +10,16 @@ fn helloworld() {
     let data = b"Hello, World!";
 
     // Create encoder and decoder
-    let enc = Encoder::new(ECC_LEN);
+    let enc = Encoder::<{ECC_LEN + 1}>::new(ECC_LEN);
     let dec = Decoder::new(ECC_LEN);
 
     // Encode data
     let encoded = enc.encode(&data[..]);
 
     // Simulate some transmission errors
-    let mut corrupted = *encoded;
+    let mut corrupted = Vec::new();
+    corrupted.extend_from_slice(&data[..]);
+    corrupted.extend_from_slice(&encoded[..]);
     for i in 0..4 {
         corrupted[i] = 0x0;
     }
@@ -33,14 +35,16 @@ fn with_erasures() {
     let data = b"Hello, World!";
 
     // Create encoder and decoder
-    let enc = Encoder::new(ECC_LEN);
+    let enc = Encoder::<{ECC_LEN + 1}>::new(ECC_LEN);
     let dec = Decoder::new(ECC_LEN);
 
     // Encode data
     let encoded = enc.encode(&data[..]);
 
     // Simulate some transmission errors
-    let mut corrupted = *encoded;
+    let mut corrupted = Vec::new();
+    corrupted.extend_from_slice(&data[..]);
+    corrupted.extend_from_slice(&encoded[..]);
     for i in 0..4 {
         corrupted[i] = 0x0;
     }

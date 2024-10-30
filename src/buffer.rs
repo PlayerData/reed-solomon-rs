@@ -1,5 +1,7 @@
-use ::gf::poly::Polynom;
+use crate::gf::poly::Polynom as GenericPolynom;
 use core::ops::{Deref, DerefMut};
+
+type Polynom = GenericPolynom<4096>;
 
 /// Buffer for block encoded data
 /// # Example
