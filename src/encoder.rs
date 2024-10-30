@@ -8,7 +8,6 @@ use ::gf;
 #[derive(Debug)]
 pub struct Encoder<const SCRATCH_SIZE: usize, const ECC_BYTE_COUNT_STORE: usize> {
     generator: Polynom<ECC_BYTE_COUNT_STORE>,
-    scratch_space: [u8; SCRATCH_SIZE],
 }
 
 impl<const SCRATCH_SIZE: usize, const ECC_BYTE_COUNT_STORE: usize> Encoder<SCRATCH_SIZE, ECC_BYTE_COUNT_STORE> {
@@ -21,7 +20,9 @@ impl<const SCRATCH_SIZE: usize, const ECC_BYTE_COUNT_STORE: usize> Encoder<SCRAT
     /// let encoder = Encoder::new(8);
     /// ```
     pub fn new(ecc_len: usize) -> Self {
-        Self { generator: generator_poly(ecc_len), scratch_space: [0; SCRATCH_SIZE] }
+        Self {
+            generator: generator_poly(ecc_len)
+        }
     }
 
     /// Encodes passed `&[u8]` slice and returns `Buffer` with result and `ecc` offset.
@@ -43,8 +44,6 @@ impl<const SCRATCH_SIZE: usize, const ECC_BYTE_COUNT_STORE: usize> Encoder<SCRAT
         if data.len() + self.generator.len() > SCRATCH_SIZE {
             panic!("Input data size must be less than or equal to INPUT_SIZE");
         }
-        self.scratch_space[..data.len()].copy_from_slice(data);
-        self.scratch_space[data.len()..].fill(0);
 
         let gen = self.generator;
         let mut lgen = Polynom::<ECC_BYTE_COUNT_STORE>::with_length(self.generator.len());
@@ -52,21 +51,29 @@ impl<const SCRATCH_SIZE: usize, const ECC_BYTE_COUNT_STORE: usize> Encoder<SCRAT
             uncheck_mut!(lgen[i]) = gf::LOG[*gen_i as usize];
         } 
 
+        let mut scratch_space: [u8; ECC_BYTE_COUNT_STORE] = [0; ECC_BYTE_COUNT_STORE];
+        scratch_space[1..].copy_from_slice(&data[..(ECC_BYTE_COUNT_STORE - 1)]);
+
         for i in 0..data.len() {
-            let coef = unsafe {self.scratch_space.get_unchecked(i)};
+            scratch_space.rotate_left(1);
+            if i + ECC_BYTE_COUNT_STORE -1 < data.len() {
+                scratch_space[ECC_BYTE_COUNT_STORE - 1] = data[i + ECC_BYTE_COUNT_STORE -1];
+            } else {
+                scratch_space[ECC_BYTE_COUNT_STORE - 1] = 0;
+            }
+
+            let coef = unsafe {scratch_space.get_unchecked(0)};
             if *coef != 0 {
                 let lcoef = gf::LOG[*coef as usize] as usize;
                 for j in 1..gen.len() {
-                    let scratch_var: &mut u8 = unsafe { &mut *self.scratch_space.get_unchecked_mut(i + j) };
+                    let scratch_var: &mut u8 = unsafe { &mut scratch_space.get_unchecked_mut(j) };
                     *scratch_var ^= gf::EXP[(lcoef + lgen[j] as usize)];
                 }
             }
         }
 
-        let mut out: [u8; ECC_BYTE_COUNT_STORE] = unsafe{ MaybeUninit::uninit().assume_init() };
-        let ecc_len = self.generator.len() - 1;
-        out[..ecc_len].copy_from_slice(&self.scratch_space[data.len()..data.len() + ecc_len]);
-        out
+        scratch_space.rotate_left(1);
+        scratch_space
     }
 }
 
