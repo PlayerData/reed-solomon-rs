@@ -1,22 +1,22 @@
 #[derive(Copy)]
-pub struct Polynom {
-    array: [u8; ::POLYNOMIAL_MAX_LENGTH],
+pub struct Polynom<const N: usize> {
+    array: [u8; N],
     length: usize,
     dirty: bool,
 }
 
-impl Polynom {
+impl<const N: usize> Polynom<N> {
     #[inline]
-    pub fn new() -> Polynom {
+    pub const fn new() -> Self {
         Polynom {
-            array: [0; ::POLYNOMIAL_MAX_LENGTH],
+            array: [0; N],
             length: 0,
             dirty: false,
         }
     }
 
     #[inline]
-    pub fn with_length(len: usize) -> Polynom {
+    pub const fn with_length(len: usize) -> Self {
         let mut p = Polynom::new();
         p.length = len;
         p
@@ -54,23 +54,27 @@ impl Polynom {
         self.array[self.length] = x;
         self.length += 1;
     }
+
+    pub fn get_mut(&mut self, index: usize) -> &mut u8 {
+        &mut self.array[index]
+    }
 }
 
-impl Clone for Polynom {
+impl<const N: usize> Clone for Polynom<N> {
     #[inline]
-    fn clone(&self) -> Polynom {
+    fn clone(&self) -> Self {
         *self
     }
 }
 
-impl Default for Polynom {
+impl<const N: usize> Default for Polynom<N> {
     fn default() -> Self {
         Self::new()
     }
 }
 
 use core::ops::Deref;
-impl Deref for Polynom {
+impl<const N: usize> Deref for Polynom<N> {
     type Target = [u8];
     #[inline]
     fn deref(&self) -> &Self::Target {
@@ -80,7 +84,7 @@ impl Deref for Polynom {
 }
 
 use core::ops::DerefMut;
-impl DerefMut for Polynom {
+impl<const N: usize> DerefMut for Polynom<N> {
     #[inline]
     fn deref_mut(&mut self) -> &mut Self::Target {
         let len = self.len();
@@ -88,9 +92,9 @@ impl DerefMut for Polynom {
     }
 }
 
-impl<'a> From<&'a [u8]> for Polynom {
+impl<'a, const N: usize> From<&'a [u8]> for Polynom<N> {
     #[inline]
-    fn from(slice: &'a [u8]) -> Polynom {
+    fn from(slice: &'a [u8]) -> Self {
         debug_assert!(slice.len() <= ::POLYNOMIAL_MAX_LENGTH);
         let mut poly = Polynom::with_length(slice.len());
         poly[..].copy_from_slice(slice);
@@ -99,7 +103,7 @@ impl<'a> From<&'a [u8]> for Polynom {
 }
 
 use core::fmt;
-impl fmt::Debug for Polynom {
+impl<const N: usize> fmt::Debug for Polynom<N> {
     fn fmt(&self, fmt: &mut fmt::Formatter) -> fmt::Result {
         write!(fmt, "{:?}", &self[..])
     }
@@ -107,9 +111,11 @@ impl fmt::Debug for Polynom {
 
 #[cfg(test)]
 mod tests {
+    use gf::poly::Polynom;
+
     #[test]
     fn push() {
-        let mut poly = polynom![];
+        let mut poly = Polynom::<10>::new();
         for i in 0..10 {
             poly.push(i);
             for j in 0..(i as usize) {
@@ -120,7 +126,7 @@ mod tests {
 
     #[test]
     fn reverse() {
-        let poly = polynom![5, 4, 3, 2, 1, 0];
+        let poly = Polynom::<6>::from(&[5, 4, 3, 2, 1, 0][..]);
         for (i, x) in poly.reverse().iter().enumerate() {
             assert_eq!(i, *x as usize);
         }
@@ -128,7 +134,7 @@ mod tests {
 
     #[test]
     fn set_length() {
-        let mut poly = polynom![1; 8];
+        let mut poly = Polynom::<8>::from(&[1; 8][..]);
         poly.set_length(2);
         poly.set_length(6);
 

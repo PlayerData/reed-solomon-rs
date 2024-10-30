@@ -1,7 +1,6 @@
 use core;
 use ::gf::poly_math::*;
 use ::gf::poly::Polynom;
-use ::buffer::Buffer;
 use ::gf;
 
 /// Decoder error
