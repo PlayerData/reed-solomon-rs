@@ -1,8 +1,8 @@
 use core;
-use ::gf::poly_math::*;
-use ::gf::poly::Polynom;
-use ::buffer::Buffer;
-use ::gf;
+use crate::gf::poly_math::*;
+use crate::gf::poly::Polynom;
+use crate::gf;
+use crate::buffer::Buffer;
 
 /// Decoder error
 #[derive(Debug, Copy, Clone)]
@@ -41,21 +41,23 @@ impl Decoder {
     /// use reed_solomon::Decoder;
     ///
     /// // Create encoder and decoder
-    /// let encoder = Encoder::new(4);
+    /// let mut encoder = Encoder::<5>::new(4);
     /// let decoder = Decoder::new(4);
     ///
     /// // Encode message
     /// let mut encoded = encoder.encode(&[1, 2, 3, 4]);
+    /// let mut message = vec![1, 2, 3, 4];
+    /// message.extend_from_slice(&encoded[..]);
     ///
     /// // Corrupt message
-    /// encoded[2] = 1;
-    /// encoded[3] = 2;
+    /// message[2] = 1;
+    /// message[3] = 2;
     ///
     /// // Let's assume it's known that `encoded[3]` is an error
     /// let known_erasures = [3];
     ///
     /// // Decode and correct message,
-    /// let corrected = decoder.correct(&mut encoded, Some(&known_erasures)).unwrap();
+    /// let corrected = decoder.correct(&mut message, Some(&known_erasures)).unwrap();
     ///
     /// // Check results
     /// assert_eq!(&[1, 2, 3, 4], corrected.data())
@@ -115,21 +117,22 @@ impl Decoder {
     /// use reed_solomon::Decoder;
     ///
     /// // Create encoder and decoder
-    /// let encoder = Encoder::new(4);
+    /// let mut encoder = Encoder::<5>::new(4);
     /// let decoder = Decoder::new(4);
     ///
     /// // Encode message
     /// let mut encoded = encoder.encode(&[1, 2, 3, 4]);
-    ///
+    /// let mut message = vec![1, 2, 3, 4];
+    /// message.extend_from_slice(&encoded[..]);
     /// // Corrupt message
-    /// encoded[2] = 1;
-    /// encoded[3] = 2;
+    /// message[2] = 1;
+    /// message[3] = 2;
     ///
     /// // Let's assume it's known that `encoded[3]` is an error
     /// let known_erasures = [3];
     ///
     /// // Decode and correct message,
-    /// let corrected = decoder.correct(&mut encoded, Some(&known_erasures)).unwrap();
+    /// let corrected = decoder.correct(&mut message, Some(&known_erasures)).unwrap();
     ///
     /// // Check results
     /// assert_eq!(&[1, 2, 3, 4], corrected.data())
@@ -149,19 +152,21 @@ impl Decoder {
     /// use reed_solomon::Decoder;
     ///
     /// // Create encoder and decoder
-    /// let encoder = Encoder::new(4);
+    /// let mut encoder = Encoder::<5>::new(4);
     /// let decoder = Decoder::new(4);
     ///
     /// // Encode message
-    /// let mut encoded = encoder.encode(&[1, 2, 3, 4]);
+    /// let encoded = encoder.encode(&[1, 2, 3, 4]);
+    /// let mut message = vec![1, 2, 3, 4];
+    /// message.extend_from_slice(&encoded[..]);
     ///
-    /// assert_eq!(decoder.is_corrupted(&encoded), false);
+    /// assert_eq!(decoder.is_corrupted(&message), false);
     ///
     /// // Corrupt message
-    /// encoded[2] = 1;
-    /// encoded[3] = 2;
+    /// message[2] = 1;
+    /// message[3] = 2;
     ///
-    /// assert_eq!(decoder.is_corrupted(&encoded), true);
+    /// assert_eq!(decoder.is_corrupted(&message), true);
     /// ```
     pub fn is_corrupted(&self, msg: &[u8]) -> bool {
         (0..self.ecc_len).any(|x| msg.eval(gf::pow(2, x as i32)) != 0)
@@ -351,32 +356,38 @@ impl Decoder {
 
 #[cfg(test)]
 mod tests {
+    use std::vec::Vec;
     use super::*;
-    use ::Encoder;
+    use crate::Encoder;
 
     #[test]
     fn calc_syndromes() {
         let px = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-        let mut encoded = Encoder::new(8).encode(&px[..]);
+        let mut encoded = Encoder::<9>::new(8).encode(&px[..]);
+        let mut message = Vec::from(&px[..]);
+        message.extend_from_slice(&encoded[..]);
 
-        assert_eq!([0; 9], *Decoder::new(8).calc_syndromes(&encoded));
+        assert_eq!([0; 9], *Decoder::new(8).calc_syndromes(&message));
 
-        encoded[5] = 1;
+        message[5] = 1;
 
         assert_eq!([0, 7, 162, 172, 245, 176, 71, 58, 180],
-                   *Decoder::new(8).calc_syndromes(&encoded));
+                   *Decoder::new(8).calc_syndromes(&message));
     }
 
     #[test]
     fn is_corrupted() {
         let px = [1, 2, 3, 4, 5, 6, 7, 8, 9];
-        let mut encoded = Encoder::new(8).encode(&px[..]);
+        let mut encoded = Encoder::<9>::new(8).encode(&px[..]);
+        let mut message = Vec::new();
+        message.extend_from_slice(&px[..]);
+        message.extend_from_slice(&encoded[..]);
 
-        assert_eq!(false, Decoder::new(8).is_corrupted(&encoded));
+        assert_eq!(false, Decoder::new(8).is_corrupted(&message));
 
-        encoded[5] = 1;
+        message[5] = 1;
 
-        assert_eq!(true, Decoder::new(8).is_corrupted(&encoded));
+        assert_eq!(true, Decoder::new(8).is_corrupted(&message));
     }
 
     #[test]
@@ -410,15 +421,17 @@ mod tests {
     #[test]
     fn error_count() {
         let msg = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-        let encoder = Encoder::new(10);
+        let mut encoder = Encoder::<11>::new(10);
 
         let encoded = encoder.encode(&msg[..]);
-        let mut errd = *encoded;
+        let mut full_message = Vec::new();
+        full_message.extend_from_slice(&msg[..]);
+        full_message.extend_from_slice(&encoded[..]);
 
-        errd[0] = 255;
-        errd[3] = 255;
+        full_message[0] = 255;
+        full_message[3] = 255;
 
-        let (_correct,err) = Decoder::new(10).correct_err_count(&errd, None).unwrap();
+        let (_correct,err) = Decoder::new(10).correct_err_count(&full_message, None).unwrap();
 
         assert_eq!(err, 2);
     }
