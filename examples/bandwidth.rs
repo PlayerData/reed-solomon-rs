@@ -39,7 +39,7 @@ fn encoder_bandwidth(data_len: usize, ecc_len: usize) -> f32 {
     
     thread::spawn(move || {
         let generator = Generator::new();
-        let encoder = Encoder::<33>::new(ecc_len);
+        let mut encoder = Encoder::<33>::new(ecc_len);
 
         let buffer: Vec<u8> = generator.take(data_len).collect();
         let mut bytes = 0;
@@ -67,7 +67,7 @@ fn decoder_bandwidth(data_len: usize, ecc_len: usize, errors: usize) -> f32 {
     
     thread::spawn(move || {
         let generator = Generator::new();
-        let encoder = Encoder::<33>::new(ecc_len);
+        let mut encoder = Encoder::<33>::new(ecc_len);
         let decoder = Decoder::new(ecc_len);
 
         let buffer: Vec<u8> = generator.take(data_len).collect();

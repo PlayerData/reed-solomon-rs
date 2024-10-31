@@ -423,7 +423,7 @@ mod tests {
     #[test]
     fn error_count() {
         let msg = [0, 1, 2, 3, 4, 5, 6, 7, 8, 9];
-        let encoder = Encoder::<11>::new(10);
+        let mut encoder = Encoder::<11>::new(10);
 
         let encoded = encoder.encode(&msg[..]);
         let mut full_message = Vec::new();

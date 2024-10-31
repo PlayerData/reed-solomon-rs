@@ -10,7 +10,7 @@ fn helloworld() {
     let data = b"Hello, World!";
 
     // Create encoder and decoder
-    let enc = Encoder::<{ECC_LEN + 1}>::new(ECC_LEN);
+    let mut enc = Encoder::<{ECC_LEN + 1}>::new(ECC_LEN);
     let dec = Decoder::new(ECC_LEN);
 
     // Encode data
@@ -35,7 +35,7 @@ fn with_erasures() {
     let data = b"Hello, World!";
 
     // Create encoder and decoder
-    let enc = Encoder::<{ECC_LEN + 1}>::new(ECC_LEN);
+    let mut enc = Encoder::<{ECC_LEN + 1}>::new(ECC_LEN);
     let dec = Decoder::new(ECC_LEN);
 
     // Encode data

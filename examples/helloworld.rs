@@ -10,7 +10,7 @@ fn main() {
     let ecc_len = 8;
 
     // Create encoder and decoder with 
-    let enc = Encoder::<9>::new(ecc_len);
+    let mut enc = Encoder::<9>::new(ecc_len);
     let dec = Decoder::new(ecc_len);
 
     // Encode data
