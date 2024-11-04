@@ -6,17 +6,19 @@ use heapless::Vec;
 /// Reed-Solomon BCH encoder
 #[derive(Debug)]
 pub struct Encoder<const ECC_BYTE_COUNT_STORE: usize> {
-    generator: Vec<u8, ECC_BYTE_COUNT_STORE>,
-    lgenerator: Vec<u8, ECC_BYTE_COUNT_STORE>,
+    generator: [u8; ECC_BYTE_COUNT_STORE],
+    lgenerator: [u8; ECC_BYTE_COUNT_STORE],
     scratch_space: Vec<u8, ECC_BYTE_COUNT_STORE>,
     bytes_processed: u8,
 }
 
 impl<const ECC_BYTE_COUNT_STORE: usize> Encoder<ECC_BYTE_COUNT_STORE> {
-    fn make_lgenerator(generator: &Vec<u8, ECC_BYTE_COUNT_STORE>) -> Vec<u8, ECC_BYTE_COUNT_STORE> {
-        let mut lgen = Vec::<u8, ECC_BYTE_COUNT_STORE>::new();
-        for gen_i in generator.iter() {
-            unsafe { lgen.push_unchecked(gf::LOG[*gen_i as usize]) };
+    const fn make_lgenerator(generator: &[u8; ECC_BYTE_COUNT_STORE]) -> [u8; ECC_BYTE_COUNT_STORE] {
+        let mut lgen = [0u8; ECC_BYTE_COUNT_STORE];
+        let mut i = 0;
+        while i < generator.len() {
+            lgen[i] = gf::LOG[generator[i] as usize];
+            i += 1;
         }
         lgen
     }
@@ -30,23 +32,22 @@ impl<const ECC_BYTE_COUNT_STORE: usize> Encoder<ECC_BYTE_COUNT_STORE> {
     /// let encoder = Encoder::<9>::new(8);
     /// ```
     pub fn new(ecc_len: usize) -> Self {
-        debug_assert!(ecc_len < ECC_BYTE_COUNT_STORE, "ECC length is too long for the provided buffer");
-        let generator: Vec<u8, ECC_BYTE_COUNT_STORE> = generator_poly(ecc_len);
+        debug_assert!(ecc_len == ECC_BYTE_COUNT_STORE - 1, "ECC length must be ECC_BYTE_COUNT_STORE - 1");
+        let generator: [u8; ECC_BYTE_COUNT_STORE] = generator_poly(ecc_len).try_into().unwrap();
 
-        Self::new_with_precomputed_generator(&generator).unwrap()
+        Self::new_with_precomputed_generator(&generator)
     }
 
 
     // generator_poly should be called to produce an array to be passed into this function
     // The array should be ecc_len + 1 bytes long
-    pub fn new_with_precomputed_generator(generator: &[u8]) -> Result<Self, ()> {
-        let generator = generator.try_into()?;
-        Ok(Self {
-            lgenerator: Self::make_lgenerator(&generator),
-            generator,
+    pub const fn new_with_precomputed_generator(generator: &[u8; ECC_BYTE_COUNT_STORE]) -> Self {
+        Self {
+            lgenerator: Self::make_lgenerator(generator),
+            generator: *generator,
             scratch_space: Vec::new(),
             bytes_processed: 0,
-        })
+        }
     }
 
     /// Encodes passed `&[u8]` slice and returns `Buffer` with result and `ecc` offset.
@@ -139,7 +140,7 @@ impl<const ECC_BYTE_COUNT_STORE: usize> Encoder<ECC_BYTE_COUNT_STORE> {
     }
 }
 
-fn generator_poly<const MAX_LEN: usize>(ecclen: usize) -> Vec<u8, MAX_LEN> {
+fn generator_poly<const MAX_LEN: usize>(ecclen: usize) -> [u8; MAX_LEN] {
     let mut gen = polynom![1];
     let mut mm = [1, 0];
     let mut i = 0;
@@ -148,7 +149,7 @@ fn generator_poly<const MAX_LEN: usize>(ecclen: usize) -> Vec<u8, MAX_LEN> {
         gen = gen.mul(&mm);
         i += 1;
     }
-    Vec::from_slice(&gen[..]).unwrap()
+    gen[..].try_into().unwrap()
 }
 
 pub const ENCODE_GEN_2_ECC_BYTES: [u8; 3] = [1, 3, 2];
@@ -163,32 +164,29 @@ mod tests {
 
     #[test]
     fn generator_poly() {
-        let answers =
-            [polynom![1, 3, 2],
-                polynom![1, 15, 54, 120, 64],
-                polynom![1, 255, 11, 81, 54, 239, 173, 200, 24],
-                polynom![1, 59, 13, 104, 189, 68, 209, 30, 8, 163, 65, 41, 229, 98, 50, 36, 59],
-                polynom![1, 116, 64, 52, 174, 54, 126, 16, 194, 162, 33, 33, 157, 176, 197, 225, 12,
+        assert_eq!([1, 3, 2], super::generator_poly(2));
+        assert_eq!([1, 15, 54, 120, 64], super::generator_poly(4));
+        assert_eq!([1, 255, 11, 81, 54, 239, 173, 200, 24], super::generator_poly(8));
+        assert_eq!([1, 59, 13, 104, 189, 68, 209, 30, 8, 163, 65, 41, 229, 98, 50, 36, 59], super::generator_poly(16));
+        assert_eq!([1, 116, 64, 52, 174, 54, 126, 16, 194, 162, 33, 33, 157, 176, 197, 225, 12,
                       59, 55, 253, 228, 148, 47, 179, 185, 24, 138, 253, 20, 142, 55, 172, 88],
-                polynom![1, 193, 10, 255, 58, 128, 183, 115, 140, 153, 147, 91, 197, 219, 221, 220,
+            super::generator_poly(32)
+        );
+        assert_eq!([1, 193, 10, 255, 58, 128, 183, 115, 140, 153, 147, 91, 197, 219, 221, 220,
                       142, 28, 120, 21, 164, 147, 6, 204, 40, 230, 182, 14, 121, 48, 143, 77,
                       228, 81, 85, 43, 162, 16, 195, 163, 35, 149, 154, 35, 132, 100, 100, 51,
                       176, 11, 161, 134, 208, 132, 244, 176, 192, 221, 232, 171, 125, 155, 228,
-                      242, 245]];
-
-        let mut ecclen = 2;
-        for i in 0..6 {
-            assert_eq!(*answers[i], *super::generator_poly::<65>(ecclen));
-            ecclen *= 2;
-        }
+                      242, 245],
+            super::generator_poly(64)
+        );
     }
 
     #[test]
     fn check_const_generators() {
-        assert_eq!(super::ENCODE_GEN_2_ECC_BYTES, *super::generator_poly::<3>(2));
-        assert_eq!(super::ENCODE_GEN_4_ECC_BYTES, *super::generator_poly::<5>(4));
-        assert_eq!(super::ENCODE_GEN_8_ECC_BYTES, *super::generator_poly::<9>(8));
-        assert_eq!(super::ENCODE_GEN_16_ECC_BYTES, *super::generator_poly::<17>(16));
+        assert_eq!(super::ENCODE_GEN_2_ECC_BYTES, super::generator_poly::<3>(2));
+        assert_eq!(super::ENCODE_GEN_4_ECC_BYTES, super::generator_poly::<5>(4));
+        assert_eq!(super::ENCODE_GEN_8_ECC_BYTES, super::generator_poly::<9>(8));
+        assert_eq!(super::ENCODE_GEN_16_ECC_BYTES, super::generator_poly::<17>(16));
     }
 
     #[test]
@@ -202,7 +200,7 @@ mod tests {
 
         assert_eq!(ecc, encoded);
 
-        let mut encoder = super::Encoder::<9>::new_with_precomputed_generator(&super::ENCODE_GEN_8_ECC_BYTES).unwrap();
+        let mut encoder = super::Encoder::<9>::new_with_precomputed_generator(&super::ENCODE_GEN_8_ECC_BYTES);
         let encoded = encoder.encode(&data[..]);
 
         assert_eq!(ecc, encoded);
