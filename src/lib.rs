@@ -16,14 +16,15 @@
 //!     let ecc_len = 8;
 //!
 //!     // Create encoder and decoder with
-//!     let enc = Encoder::new(ecc_len);
+//!     let mut enc = Encoder::<9>::new(ecc_len);
 //!     let dec = Decoder::new(ecc_len);
 //!
 //!     // Encode data
 //!     let encoded = enc.encode(&data[..]);
+//!     let mut corrupted = Vec::from(data);
+//!     corrupted.extend_from_slice(&encoded);
 //!
 //!     // Simulate some transmission errors
-//!     let mut corrupted = *encoded;
 //!     for i in 0..4 {
 //!         corrupted[i] = 0x0;
 //!     }
@@ -37,7 +38,7 @@
 //!
 //!     println!("message:               {:?}", orig_str);
 //!     println!("original data:         {:?}", data);
-//!     println!("error correction code: {:?}", encoded.ecc());
+//!     println!("error correction code: {:?}", encoded);
 //!     println!("corrupted:             {:?}", corrupted);
 //!     println!("repaired:              {:?}", recv_str);
 //! }
@@ -167,16 +168,23 @@
 
 #![no_std]
 
+#[cfg(test)]
+extern crate std;
+extern crate heapless;
+
 const POLYNOMIAL_MAX_LENGTH: usize = 256;
 
 #[macro_use]
 mod macros;
 mod gf;
 mod encoder;
+#[cfg(feature = "decoder")]
 mod decoder;
+#[cfg(feature = "decoder")]
 mod buffer;
 
-pub use encoder::Encoder;
-pub use decoder::Decoder;
-pub use decoder::DecoderError;
+pub use encoder::*;
+#[cfg(feature = "decoder")]
+pub use decoder::{Decoder,DecoderError};
+#[cfg(feature = "decoder")]
 pub use buffer::Buffer;

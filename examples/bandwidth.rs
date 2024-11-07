@@ -1,5 +1,12 @@
+extern crate serde;
+extern crate serde_json;
 extern crate reed_solomon;
-extern crate rustc_serialize;
+
+use std::thread;
+use std::time::Duration;
+use std::sync::mpsc;
+
+use serde::{Serialize};
 
 use reed_solomon::Encoder;
 use reed_solomon::Decoder;
@@ -24,19 +31,15 @@ impl Iterator for Generator {
     }
 }
 
-use std::thread;
-use std::time::Duration;
-use std::sync::mpsc;
-
 // Returns MB/s
-fn encoder_bandwidth(data_len: usize, ecc_len: usize) -> f32 { 
+fn encoder_bandwidth(data_len: usize, ecc_len: usize) -> f32 {
      // Measure encoding bandwidth
     let (tx, thr_rx) = mpsc::channel();
     let (thr_tx, rx) = mpsc::channel();
     
     thread::spawn(move || {
         let generator = Generator::new();
-        let encoder = Encoder::new(ecc_len);
+        let mut encoder = Encoder::<33>::new(ecc_len);
 
         let buffer: Vec<u8> = generator.take(data_len).collect();
         let mut bytes = 0;
@@ -64,19 +67,21 @@ fn decoder_bandwidth(data_len: usize, ecc_len: usize, errors: usize) -> f32 {
     
     thread::spawn(move || {
         let generator = Generator::new();
-        let encoder = Encoder::new(ecc_len);
+        let mut encoder = Encoder::<33>::new(ecc_len);
         let decoder = Decoder::new(ecc_len);
 
         let buffer: Vec<u8> = generator.take(data_len).collect();
         let mut encoded = encoder.encode(&buffer);
-        for x in encoded.iter_mut().take(errors) {
+        let mut message = buffer.clone();
+        message.extend_from_slice(&encoded[..]);
+        for x in message.iter_mut().take(errors) {
             *x = 0;
         } 
 
         let mut bytes = 0;
         while thr_rx.try_recv().is_err() {
-            if decoder.is_corrupted(&encoded) {
-                decoder.correct(&mut encoded, None).unwrap();
+            if decoder.is_corrupted(&message) {
+                decoder.correct(&mut message, None).unwrap();
             }            
             bytes += data_len;
         }
@@ -92,7 +97,7 @@ fn decoder_bandwidth(data_len: usize, ecc_len: usize, errors: usize) -> f32 {
     kbytes / 1024.0
 } 
 
-#[derive(RustcEncodable)]
+#[derive(Serialize)]
 struct BenchResult {
     data_len: usize,
     ecc_len: usize,
@@ -100,12 +105,12 @@ struct BenchResult {
     decoder: Vec<DecoderResult>
 } 
 
-#[derive(RustcEncodable)]
+#[derive(Serialize)]
 struct EncoderResult {
     bandwidth: f32
 }
 
-#[derive(RustcEncodable)]
+#[derive(Serialize)]
 struct DecoderResult {
     errors: usize,
     bandwidth: f32
@@ -129,6 +134,6 @@ fn main() {
         }
     }).collect();
 
-    let json = rustc_serialize::json::encode(&results).unwrap();
+    let json = serde_json::to_string(&results).unwrap();
     println!("{}", json);
 }

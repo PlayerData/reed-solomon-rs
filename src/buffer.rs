@@ -1,5 +1,6 @@
-use ::gf::poly::Polynom;
+use crate::gf::poly::Polynom;
 use core::ops::{Deref, DerefMut};
+
 
 /// Buffer for block encoded data
 /// # Example
